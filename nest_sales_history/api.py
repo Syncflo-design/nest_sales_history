@@ -13,6 +13,7 @@ customer missing from them falls back to the ERPNext Item / Customer record.
 import html
 
 import frappe
+from frappe.integrations.utils import make_post_request
 from frappe.utils import flt
 
 # A sale with items from more than one entity posts in full to this Sage company
@@ -393,7 +394,7 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 		skip = 0
 		while True:
 			url = f"{PHAROH_HISTORY_URL}?apikey={apikey}&fromDate={from_date}&toDate={to_date}&documentType={document_type}&skipQty={skip}"
-			resp = frappe.make_post_request(url, json=creds, headers={"Content-Type": "application/json"}) or {}
+			resp = make_post_request(url, json=creds, headers={"Content-Type": "application/json"}) or {}
 			page = resp.get("items") or []
 			if not page:
 				break
