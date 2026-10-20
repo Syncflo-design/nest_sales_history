@@ -1,0 +1,266 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "hash",
+ "creation": "2026-10-20 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "store",
+  "posting_date",
+  "invoice_no",
+  "invoice_type",
+  "column_break_1",
+  "customer",
+  "customer_category",
+  "sales_person",
+  "source",
+  "section_item",
+  "item_code",
+  "item_name",
+  "item_entity",
+  "item_category",
+  "column_break_2",
+  "collection",
+  "design",
+  "colour",
+  "size",
+  "section_amounts",
+  "qty",
+  "amount_excl",
+  "vat",
+  "column_break_3",
+  "amount_incl",
+  "cost",
+  "section_links",
+  "sales_invoice",
+  "sales_invoice_item"
+ ],
+ "fields": [
+  {
+   "description": "The Sage entity the sale was posted to (Home, Ceramics, Fashion).",
+   "fieldname": "company",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "search_index": 1
+  },
+  {
+   "description": "Till or warehouse the sale came from.",
+   "fieldname": "store",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Store"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Date",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "invoice_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Invoice No",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "default": "Invoice",
+   "fieldname": "invoice_type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "Invoice\nCredit Note"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "search_index": 1
+  },
+  {
+   "fieldname": "customer_category",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Customer Category"
+  },
+  {
+   "fieldname": "sales_person",
+   "fieldtype": "Data",
+   "label": "Sales Person"
+  },
+  {
+   "default": "ERPNext",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "ERPNext\nSage history\nSpreadsheet"
+  },
+  {
+   "fieldname": "section_item",
+   "fieldtype": "Section Break",
+   "label": "Item"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "search_index": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name"
+  },
+  {
+   "description": "The entity the item belongs to by its category (Home, Ceramics, Fashion). Differs from Company on a mixed sale posted to Home.",
+   "fieldname": "item_entity",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Item Entity"
+  },
+  {
+   "description": "Product category: Ceramics, Cushions, Fabric, Scarves...",
+   "fieldname": "item_category",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Item Category",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "collection",
+   "fieldtype": "Data",
+   "label": "Collection"
+  },
+  {
+   "fieldname": "design",
+   "fieldtype": "Data",
+   "label": "Design"
+  },
+  {
+   "fieldname": "colour",
+   "fieldtype": "Data",
+   "label": "Colour"
+  },
+  {
+   "fieldname": "size",
+   "fieldtype": "Data",
+   "label": "Size"
+  },
+  {
+   "fieldname": "section_amounts",
+   "fieldtype": "Section Break",
+   "label": "Amounts"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty"
+  },
+  {
+   "fieldname": "amount_excl",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount Excl VAT"
+  },
+  {
+   "fieldname": "vat",
+   "fieldtype": "Currency",
+   "label": "VAT"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount_incl",
+   "fieldtype": "Currency",
+   "label": "Amount Incl VAT"
+  },
+  {
+   "fieldname": "cost",
+   "fieldtype": "Currency",
+   "label": "Cost"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_links",
+   "fieldtype": "Section Break",
+   "label": "Links"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "search_index": 1
+  },
+  {
+   "fieldname": "sales_invoice_item",
+   "fieldtype": "Data",
+   "label": "Invoice Line"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-20 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Nest Sales History",
+ "name": "Sales History",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager"
+  }
+ ],
+ "sort_field": "posting_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "invoice_no",
+ "track_changes": 0
+}

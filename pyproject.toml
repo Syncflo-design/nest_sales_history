@@ -1,0 +1,19 @@
+[project]
+name = "nest_sales_history"
+authors = [{ name = "Syncflo", email = "ops@syncflo.co.za" }]
+description = "One flat sales-history table for reporting: every ERPNext invoice and credit note line as it is submitted, plus imported history from the previous system. Read by Frappe Insights."
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = []
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "nest_sales_history"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
