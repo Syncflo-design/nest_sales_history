@@ -10,6 +10,8 @@ reports correctly. Report Item and Report Customer hold those attributes; an ite
 customer missing from them falls back to the ERPNext Item / Customer record.
 """
 
+import html
+
 import frappe
 from frappe.utils import flt
 
@@ -362,6 +364,11 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 
 	items = {d.name: d for d in frappe.get_all("Report Item", fields=["name", "item_name", "item_entity", "item_category", "collection", "design", "colour", "size"])}
 	custs = {d.name: d.customer_category for d in frappe.get_all("Report Customer", fields=["name", "customer_category"])}
+	# Sage lines carry the item's Sage id (selectionId). ERPNext already holds that id against
+	# every item it synced from this Sage company, so the id is resolved here; Pharoh's own
+	# itemCode is used when it comes through.
+	sel_map = {str(d.selection_id).strip(): d.item_code for d in frappe.get_all("Sage Item Selection",
+		filters={"company": company}, fields=["selection_id", "item_code"]) if d.selection_id}
 	stamp, user = now(), frappe.session.user
 	fields = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
 		"company", "store", "posting_date", "invoice_no", "invoice_type", "customer", "customer_category",
@@ -401,7 +408,7 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 				cust_cat = custs.get(cust) or _s(inv.get("customerCategory"))
 				d = getdate(str(inv.get("date"))[:10])
 				for ln in inv.get("lines") or []:
-					code = _s(ln.get("itemCode"))
+					code = _s(ln.get("itemCode")) or sel_map.get(str(ln.get("selectionId") or "").strip(), "")
 					it = items.get(code) or (_report_item_from_erpnext(code) if code else None)
 					qty = sign * abs(flt(ln.get("quantity")))
 					excl = sign * abs(flt(ln.get("exclusive")))
@@ -411,7 +418,7 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 						frappe.generate_hash(length=10), user, stamp, stamp, user, 0, 0,
 						company, "", d, _s(inv.get("documentNumber")), "Credit Note" if is_cn else "Invoice",
 						cust, cust_cat, _s(inv.get("salesRep")), SAGE_SOURCE,
-						code, (it.get("item_name") if it else _s(ln.get("description"))), (it.get("item_entity") if it else company),
+						code, (it.get("item_name") if it else html.unescape(_s(ln.get("description")))), (it.get("item_entity") if it else company),
 						(it.get("item_category") if it else "Non-stock line"),
 						(it.get("collection") if it else ""), (it.get("design") if it else ""), (it.get("colour") if it else ""), (it.get("size") if it else ""),
 						qty, excl, vat, incl, round(abs(flt(ln.get("unitCost"))) * qty, 2),
