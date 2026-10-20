@@ -303,3 +303,136 @@ def delete_source(source):
 	frappe.db.delete("Sales History", {"source": source})
 	frappe.db.commit()
 	return {"deleted": n}
+
+
+# ---- pulling history straight from Sage (through Pharoh) ----------------------------------
+#
+# Russell, 2026-10-20: history is pulled from Sage, about six months a call, two years
+# back to start. One call per Sage company per window:
+#     pull_sage_invoices("Home", "2026-04-01", "2026-09-30")
+# It runs in the background, replaces any Sage-history rows already held for that
+# company and window (so a window can be pulled again safely), fetches invoices and
+# then credit notes, and stamps the rows from Report Item / Report Customer (falling
+# back to the customer category Sage sends). Credentials come from the site's Company
+# Sage Integration, exactly as the posting scripts use them.
+#
+# Pharoh endpoint (SageErpNextAPI, TaxInvoiceController.GetSalesHistoryForErpNext):
+#   POST https://pharoh.co.za/api/TaxInvoice/get-sales-history-for-erpnext
+#        ?apikey=..&fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&documentType=Invoice|CreditNote&skipQty=0
+#   body: {"loginName","loginPwd","useOAuth":false,"sessionToken":null,"provider":null}
+#   reply: {"totalResults": n, "returnedResults": m, "items": [
+#            {"sageId": 1, "documentNumber": "JSSA26758", "documentType": "Invoice",
+#             "date": "2026-09-30T00:00:00", "status": "...", "customerName": "Will+Will",
+#             "customerCategory": "National - Wholesale", "salesRep": "Leah Masoka",
+#             "lines": [{"itemCode": "CUSHCCA60V", "lineType": 0, "description": "...",
+#                        "quantity": 1, "exclusive": 1652.17, "tax": 247.83, "total": 1900.00,
+#                        "unitCost": 864.13}]}]}
+#   Amounts are positive on both document types; this side signs credit notes negative.
+#   lineType 1 = account line (freight, discounts): no item code, reported as a non-stock line.
+
+PHAROH_HISTORY_URL = "https://pharoh.co.za/api/TaxInvoice/get-sales-history-for-erpnext"
+SAGE_SOURCE = "Sage history"
+
+
+@frappe.whitelist()
+def pull_sage_invoices(company, from_date, to_date):
+	frappe.only_for("System Manager")
+	if not frappe.db.exists("Company Sage Integration", company):
+		frappe.throw(f"No Company Sage Integration named {company}.")
+	frappe.enqueue(
+		"nest_sales_history.api._pull_sage_invoices_job",
+		queue="long", timeout=7200,
+		company=company, from_date=str(from_date), to_date=str(to_date),
+	)
+	return {"queued": True, "company": company, "from_date": from_date, "to_date": to_date}
+
+
+def _pull_sage_invoices_job(company, from_date, to_date):
+	from frappe.utils import getdate, now
+
+	sage = frappe.get_doc("Company Sage Integration", company)
+	apikey = sage.get_password("api_key")
+	creds = {"loginName": sage.username, "loginPwd": sage.get_password("password"),
+		"useOAuth": False, "sessionToken": None, "provider": None}
+
+	# A window pulled again replaces what it pulled before.
+	frappe.db.delete("Sales History", {"source": SAGE_SOURCE, "company": company,
+		"posting_date": ["between", [from_date, to_date]]})
+	frappe.db.commit()
+
+	items = {d.name: d for d in frappe.get_all("Report Item", fields=["name", "item_name", "item_entity", "item_category", "collection", "design", "colour", "size"])}
+	custs = {d.name: d.customer_category for d in frappe.get_all("Report Customer", fields=["name", "customer_category"])}
+	stamp, user = now(), frappe.session.user
+	fields = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
+		"company", "store", "posting_date", "invoice_no", "invoice_type", "customer", "customer_category",
+		"sales_person", "source", "item_code", "item_name", "item_entity", "item_category", "collection",
+		"design", "colour", "size", "qty", "amount_excl", "vat", "amount_incl", "cost"]
+
+	# Never hold a sale twice. A till sale rung up in ERPNext is posted to Sage with the
+	# ERPNext invoice number as its Reference, and ERPNext keeps the Sage document number
+	# it got back. A Sage document that matches either way is already in Sales History
+	# as a live ERPNext row, so the pull leaves it out.
+	known_sage_numbers = set()
+	for v in frappe.get_all("Sales Invoice", filters={"docstatus": 1, "custom_sage_document_number": ["is", "set"]}, pluck="custom_sage_document_number"):
+		for part in str(v).split(","):
+			if part.strip():
+				known_sage_numbers.add(part.strip())
+	erpnext_names = set(frappe.get_all("Sales Invoice", filters={"docstatus": 1}, pluck="name"))
+
+	docs = lines_done = already_in_erpnext = 0
+	for document_type in ("Invoice", "CreditNote"):
+		is_cn = document_type == "CreditNote"
+		sign = -1 if is_cn else 1
+		skip = 0
+		while True:
+			url = f"{PHAROH_HISTORY_URL}?apikey={apikey}&fromDate={from_date}&toDate={to_date}&documentType={document_type}&skipQty={skip}"
+			resp = frappe.make_post_request(url, json=creds, headers={"Content-Type": "application/json"}) or {}
+			page = resp.get("items") or []
+			if not page:
+				break
+			batch = []
+			for inv in page:
+				if str(inv.get("status") or "").strip().lower() == "draft":
+					continue
+				if _s(inv.get("documentNumber")) in known_sage_numbers or _s(inv.get("reference")) in erpnext_names:
+					already_in_erpnext += 1
+					continue
+				cust = _s(inv.get("customerName"))
+				cust_cat = custs.get(cust) or _s(inv.get("customerCategory"))
+				d = getdate(str(inv.get("date"))[:10])
+				for ln in inv.get("lines") or []:
+					code = _s(ln.get("itemCode"))
+					it = items.get(code) or (_report_item_from_erpnext(code) if code else None)
+					qty = sign * abs(flt(ln.get("quantity")))
+					excl = sign * abs(flt(ln.get("exclusive")))
+					vat = sign * abs(flt(ln.get("tax")))
+					incl = sign * abs(flt(ln.get("total"))) if ln.get("total") is not None else round(excl + vat, 2)
+					batch.append([
+						frappe.generate_hash(length=10), user, stamp, stamp, user, 0, 0,
+						company, "", d, _s(inv.get("documentNumber")), "Credit Note" if is_cn else "Invoice",
+						cust, cust_cat, _s(inv.get("salesRep")), SAGE_SOURCE,
+						code, (it.get("item_name") if it else _s(ln.get("description"))), (it.get("item_entity") if it else company),
+						(it.get("item_category") if it else "Non-stock line"),
+						(it.get("collection") if it else ""), (it.get("design") if it else ""), (it.get("colour") if it else ""), (it.get("size") if it else ""),
+						qty, excl, vat, incl, round(abs(flt(ln.get("unitCost"))) * qty, 2),
+					])
+				docs += 1
+			if batch:
+				frappe.db.bulk_insert("Sales History", fields=fields, values=batch)
+				frappe.db.commit()
+				lines_done += len(batch)
+			returned = int(resp.get("returnedResults") or len(page))
+			total = int(resp.get("totalResults") or 0)
+			skip += returned
+			if returned == 0 or (total and skip >= total):
+				break
+	frappe.log_error(message=f"{company} {from_date}..{to_date}: {docs} documents, {lines_done} lines into Sales History; {already_in_erpnext} left out because ERPNext already holds them.", title="Sales History: Sage pull finished")
+	return {"documents": docs, "lines": lines_done, "already_in_erpnext": already_in_erpnext}
+
+
+def _report_item_from_erpnext(code):
+	"""An item not on the Report Item list: take what the ERPNext Item knows, if it exists."""
+	if not code or not frappe.db.exists("Item", code):
+		return None
+	a = _item_attrs(code)
+	return frappe._dict(a)

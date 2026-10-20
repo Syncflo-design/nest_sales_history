@@ -27,8 +27,13 @@ listed falls back to the ERPNext Item / Customer record.
 - **Live**: every submitted Sales Invoice (sale or credit note) writes its lines in on
   submit and removes them on cancel. `company` follows the Sage posting rule: all items
   from one entity, that entity; more than one, Home.
-- **History**: Data Import into Sales History from the previous system's export, with
-  `source` = Sage history or Spreadsheet.
+- **History from Sage** (the chosen route): `pull_sage_invoices(company, from_date, to_date)`
+  pulls one Sage company for one window through Pharoh, about six months a call, and
+  stamps the rows (`source` = Sage history). Pulling a window again replaces it. The
+  Pharoh endpoint contract is documented at the top of that section in `api.py`.
+- **History from spreadsheets** (fallback): `load_customers`, `load_items`, `load_sales`
+  read the previous system's exports uploaded as Files (`source` = Spreadsheet);
+  `delete_source("Spreadsheet")` removes such a load in one go.
 - `nest_sales_history.api.rebuild(from_date)` regenerates the ERPNext rows from the
   submitted invoices; history rows are untouched.
 
