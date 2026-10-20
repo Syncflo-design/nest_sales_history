@@ -26,6 +26,7 @@
   "design",
   "colour",
   "size",
+  "base_cloth",
   "section_amounts",
   "qty",
   "amount_excl",
@@ -164,6 +165,12 @@
    "fieldname": "size",
    "fieldtype": "Data",
    "label": "Size"
+  },
+  {
+   "fieldname": "base_cloth",
+   "fieldtype": "Data",
+   "label": "Base Cloth",
+   "in_standard_filter": 1
   },
   {
    "fieldname": "section_amounts",

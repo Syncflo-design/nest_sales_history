@@ -67,6 +67,7 @@ def write_lines(doc):
 				"design": attrs["design"],
 				"colour": attrs["colour"],
 				"size": attrs["size"],
+				"base_cloth": attrs["base_cloth"],
 				"qty": flt(it.qty),
 				"amount_excl": excl,
 				"vat": round(incl - excl, 2),
@@ -96,7 +97,7 @@ def _item_attrs(item_code, item_name=None):
 	r = frappe.db.get_value(
 		"Report Item",
 		item_code,
-		["item_name", "item_entity", "item_category", "collection", "design", "colour", "size"],
+		["item_name", "item_entity", "item_category", "collection", "design", "colour", "size", "base_cloth"],
 		as_dict=True,
 	)
 	if r:
@@ -104,7 +105,7 @@ def _item_attrs(item_code, item_name=None):
 	i = frappe.db.get_value(
 		"Item",
 		item_code,
-		["item_name", "custom_category", "custom_type", "item_group", "custom_collection", "custom_design", "custom_colour", "custom_size"],
+		["item_name", "custom_category", "custom_type", "item_group", "custom_collection", "custom_design", "custom_colour", "custom_size", "custom_base_cloth"],
 		as_dict=True,
 	) or {}
 	category = i.get("custom_type") or ""
@@ -120,6 +121,7 @@ def _item_attrs(item_code, item_name=None):
 		"design": i.get("custom_design") or "",
 		"colour": i.get("custom_colour") or "",
 		"size": i.get("custom_size") or "",
+		"base_cloth": i.get("custom_base_cloth") or "",
 	}
 
 
@@ -250,14 +252,14 @@ def _load_sales_job(file_url, company, source, sheet, vat_rate):
 	from frappe.utils import getdate, now
 
 	rows = _sheet_rows(file_url, sheet)
-	items = {d.name: d for d in frappe.get_all("Report Item", fields=["name", "item_name", "item_entity", "item_category", "collection", "design", "colour", "size"])}
+	items = {d.name: d for d in frappe.get_all("Report Item", fields=["name", "item_name", "item_entity", "item_category", "collection", "design", "colour", "size", "base_cloth"])}
 	custs = {d.name: d.customer_category for d in frappe.get_all("Report Customer", fields=["name", "customer_category"])}
 	stamp = now()
 	user = frappe.session.user
 	fields = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
 		"company", "store", "posting_date", "invoice_no", "invoice_type", "customer", "customer_category",
 		"source", "item_code", "item_name", "item_entity", "item_category", "collection", "design", "colour",
-		"size", "qty", "amount_excl", "vat", "amount_incl"]
+		"size", "base_cloth", "qty", "amount_excl", "vat", "amount_incl"]
 	batch, done, skipped = [], 0, 0
 	for r in rows[1:]:
 		inv = _s(r[2]) if len(r) > 2 else ""
@@ -282,7 +284,7 @@ def _load_sales_job(file_url, company, source, sheet, vat_rate):
 			frappe.generate_hash(length=10), user, stamp, stamp, user, 0, 0,
 			row_company, "", d, inv, "Credit Note" if inv.upper().startswith("CRN") or excl < 0 else "Invoice", cust, custs.get(cust, ""),
 			source, code, (it.item_name if it else ""), (it.item_entity if it else row_company), (it.item_category if it else ("Non-stock line" if not it and code else "")),
-			(it.collection if it else ""), (it.design if it else ""), (it.colour if it else ""), (it.size if it else ""),
+			(it.collection if it else ""), (it.design if it else ""), (it.colour if it else ""), (it.size if it else ""), (it.base_cloth if it else ""),
 			qty, excl, round(incl - excl, 2), incl,
 		])
 		if len(batch) >= 2000:
@@ -363,7 +365,7 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 		"posting_date": ["between", [from_date, to_date]]})
 	frappe.db.commit()
 
-	items = {d.name: d for d in frappe.get_all("Report Item", fields=["name", "item_name", "item_entity", "item_category", "collection", "design", "colour", "size"])}
+	items = {d.name: d for d in frappe.get_all("Report Item", fields=["name", "item_name", "item_entity", "item_category", "collection", "design", "colour", "size", "base_cloth"])}
 	custs = {d.name: d.customer_category for d in frappe.get_all("Report Customer", fields=["name", "customer_category"])}
 	# Sage lines carry the item's Sage id (selectionId). ERPNext already holds that id against
 	# every item it synced from this Sage company, so the id is resolved here; Pharoh's own
@@ -374,7 +376,7 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 	fields = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx",
 		"company", "store", "posting_date", "invoice_no", "invoice_type", "customer", "customer_category",
 		"sales_person", "source", "item_code", "item_name", "item_entity", "item_category", "collection",
-		"design", "colour", "size", "qty", "amount_excl", "vat", "amount_incl", "cost"]
+		"design", "colour", "size", "base_cloth", "qty", "amount_excl", "vat", "amount_incl", "cost"]
 
 	# Never hold a sale twice. A till sale rung up in ERPNext is posted to Sage with the
 	# ERPNext invoice number as its Reference, and ERPNext keeps the Sage document number
@@ -421,7 +423,7 @@ def _pull_sage_invoices_job(company, from_date, to_date):
 						cust, cust_cat, _s(inv.get("salesRep")), SAGE_SOURCE,
 						code, (it.get("item_name") if it else html.unescape(_s(ln.get("description")))), (it.get("item_entity") if it else company),
 						(it.get("item_category") if it else "Non-stock line"),
-						(it.get("collection") if it else ""), (it.get("design") if it else ""), (it.get("colour") if it else ""), (it.get("size") if it else ""),
+						(it.get("collection") if it else ""), (it.get("design") if it else ""), (it.get("colour") if it else ""), (it.get("size") if it else ""), (it.get("base_cloth") if it else ""),
 						qty, excl, vat, incl, round(abs(flt(ln.get("unitCost"))) * qty, 2),
 					])
 				docs += 1
