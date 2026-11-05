@@ -3,7 +3,7 @@ app_title       = "Nest Sales History"
 app_publisher   = "NestERP / Syncflo"
 app_description = "One flat sales-history table for reporting, kept live from ERPNext invoices and loaded once from the previous system."
 app_email       = "ops@syncflo.co.za"
-app_license     = "MIT"
+app_license     = "Proprietary"
 app_icon        = "octicon octicon-graph"
 
 required_apps = ["erpnext"]
