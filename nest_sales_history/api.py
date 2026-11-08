@@ -90,6 +90,11 @@ def _sage_company(doc):
 		return entities[0]
 	if len(entities) > 1:
 		return MULTI_ENTITY_COMPANY
+	# no item to go by (a till's Sales Other line, Ardmore ticket 0129): the till's own Sage entity
+	if doc.get("pos_profile"):
+		till_entity = frappe.db.get_value("POS Profile", doc.pos_profile, "custom_sage_entity")
+		if till_entity:
+			return till_entity
 	return doc.company
 
 
